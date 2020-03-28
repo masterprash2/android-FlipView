@@ -23,14 +23,20 @@ android {
         }
     }
 
+        compileOptions {
+            sourceCompatibility 1.8
+            targetCompatibility 1.8
+        }
+
+
 }
 
 dependencies {
     implementation fileTree(dir: '../externalLibs/libs-rvadapters', include: ['*.aar'])
-    implementation fileTree(dir: '../externalLibs/libs-rvadapters', include: ['*.jar'])
+    compileOnly fileTree(dir: '../externalLibs/libs-rvadapters', include: ['*.jar'])
 
     implementation fileTree(dir: '../externalLibs/libs-segment', include: ['*.aar'])
-    implementation fileTree(dir: '../externalLibs/libs-segment', include: ['*.jar'])
+    compileOnly fileTree(dir: '../externalLibs/libs-segment', include: ['*.jar'])
 
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"

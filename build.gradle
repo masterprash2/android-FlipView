@@ -27,3 +27,33 @@ allprojects {
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
+
+ext {
+    libVersion = "0.0.3";
+}
+
+task makeaar(type: Copy) {
+    def versionString = project.libVersion
+    from fileTree(".").files
+    into 'build/libs-fipView/'+versionString
+    include "library*-debug.aar"
+    exclude 'build', 'external-libs', 'external-libs-compileonly', 'app'
+    includeEmptyDirs = false
+    rename { String fileName ->
+        fileName.replace('-debug', '_flipView-v'+versionString)
+    }
+}
+
+
+
+task buildsdk(type: Copy, dependsOn: makeaar) {
+    def versionString = project.libVersion
+    from fileTree(".").files
+    into 'build/libs-flipView/'+versionString
+    include 'libary*.jar'
+    exclude 'build', 'external-libs', 'external-libs-compileonly', 'app'
+    includeEmptyDirs = false
+    rename { String fileName ->
+        fileName.replace('.jar', '@flipView-v'+versionString+'.jar')
+    }
+}

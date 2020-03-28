@@ -4,7 +4,6 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.TimeInterpolator;
 import android.animation.ValueAnimator;
-import android.animation.ValueAnimator.AnimatorUpdateListener;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.database.DataSetObserver;
@@ -137,7 +136,7 @@ public class FlipView extends FrameLayout {
 
     private float mFlipDistance = INVALID_FLIP_DISTANCE;
     private int mCurrentPageIndex = 0;
-    private int mLastDispatchedPageEventIndex = 0;
+    private int mLastDispatchedPageEventIndex = -1;
 
     private OverFlipMode mOverFlipMode;
     private OverFlipper mOverFlipper;
@@ -200,17 +199,19 @@ public class FlipView extends FrameLayout {
         mShinePaint.setStyle(Style.FILL);
     }
 
+    private int getAdapterPosition(Page page) {
+        return page.item == null ? PagerAdapter.POSITION_NONE : mAdapter.getItemPosition(page.item);
+    }
+
     private void dataSetChanged() {
-        int newPosition = mAdapter.getItemPosition(mCurrentPage.item);
+        int newPosition = getAdapterPosition(mCurrentPage);
 
         mPageCount = mAdapter.getCount();
 
         if (newPosition == PagerAdapter.POSITION_NONE) {
             mFlipDistance = INVALID_FLIP_DISTANCE;
-            mPageCount = 0;
             setFlipDistance(0);
-        }
-        else {
+        } else {
             preservePages(newPosition);
         }
 
@@ -224,18 +225,17 @@ public class FlipView extends FrameLayout {
     }
 
     private void updatePreviousPage(int newPosition) {
-        if(newPosition > 0) {
-            int previous = mAdapter.getItemPosition(mPreviousPage.item);
+        if (newPosition > 0) {
+            int previous = getAdapterPosition(mPreviousPage);
             previous = previous == PagerAdapter.POSITION_UNCHANGED ? mPreviousPage.position : previous;
             mPreviousPage.position = previous;
-            if(previous == PagerAdapter.POSITION_NONE || previous != newPosition -1) {
+            if (previous == PagerAdapter.POSITION_NONE || previous != newPosition - 1) {
                 destroyPage(mPreviousPage);
-                addView(mPreviousPage,previous);
+                addView(mPreviousPage, previous);
                 removeView(mPreviousPage.view);
-                addView(mPreviousPage.view,0);
+                addView(mPreviousPage.view, 0);
             }
-        }
-        else {
+        } else {
             destroyPage(mPreviousPage);
         }
 
@@ -243,39 +243,25 @@ public class FlipView extends FrameLayout {
 
     private void preserveCurrentPage(int newPosition) {
         newPosition = newPosition == PagerAdapter.POSITION_UNCHANGED ? mCurrentPageIndex : newPosition;
-        int flipDistance = newPosition * FLIP_DISTANCE_PER_PAGE;
-        if (mPageCount < 1) {
-            mFlipDistance = 0;
-            mCurrentPageIndex = PagerAdapter.POSITION_NONE;
-            recycleActiveViews();
-            return;
-        }
-
-        if (flipDistance == mFlipDistance) {
-            return;
-        }
-
-        mFlipDistance = flipDistance;
-
+        mFlipDistance = newPosition * FLIP_DISTANCE_PER_PAGE;
         final int currentPageIndex = (int) Math.round(mFlipDistance
                 / FLIP_DISTANCE_PER_PAGE);
         newPosition = currentPageIndex;
-        mCurrentPageIndex = mCurrentPage.position = newPosition;
+        mLastDispatchedPageEventIndex = mCurrentPageIndex = mCurrentPage.position = newPosition;
     }
 
     private void updateNextPage(int newPosition) {
-        if(newPosition < mPageCount - 1 ) {
-            int next = mAdapter.getItemPosition(mNextPage.item);
+        if (newPosition < mPageCount - 1) {
+            int next = getAdapterPosition(mNextPage);
             next = next == PagerAdapter.POSITION_UNCHANGED ? mNextPage.position : next;
             mNextPage.position = next;
-            if(next == PagerAdapter.POSITION_NONE || next != newPosition + 1) {
+            if (next == PagerAdapter.POSITION_NONE || next != newPosition + 1) {
                 destroyPage(mNextPage);
                 addView(mNextPage, next);
                 removeView(mNextPage.view);
-                addView(mNextPage.view,0);
+                addView(mNextPage.view, 0);
             }
-        }
-        else {
+        } else {
             destroyPage(mNextPage);
         }
     }
@@ -359,7 +345,7 @@ public class FlipView extends FrameLayout {
     }
 
     private void setFlipDistance(float flipDistance) {
-
+        flipDistance = Math.max(0, flipDistance);
         if (mPageCount < 1) {
             mFlipDistance = 0;
             mCurrentPageIndex = PagerAdapter.POSITION_NONE;
@@ -377,7 +363,7 @@ public class FlipView extends FrameLayout {
                 / FLIP_DISTANCE_PER_PAGE);
 
         if (mCurrentPageIndex != currentPageIndex) {
-            boolean jump = mCurrentPageIndex < 0  || Math.abs(mCurrentPageIndex - currentPageIndex) != 1;
+            boolean jump = mCurrentPageIndex < 0 || Math.abs(mCurrentPageIndex - currentPageIndex) != 1;
             boolean isNext = (currentPageIndex - mCurrentPageIndex) == 1;
             mCurrentPageIndex = currentPageIndex;
 
@@ -424,6 +410,7 @@ public class FlipView extends FrameLayout {
                     }
                 }
             }
+            postFlippedToPage(mCurrentPage.position);
         }
 
         invalidate();
@@ -448,7 +435,8 @@ public class FlipView extends FrameLayout {
 
     private void destroyPage(Page page) {
         if (page.valid) {
-            mAdapter.destroyItem(this, page.position, page.item);
+            if (mAdapter != null)
+                mAdapter.destroyItem(this, page.position, page.item);
 //            mPreviousPage.view = null;
             page.setInValid();
         }
@@ -730,15 +718,7 @@ public class FlipView extends FrameLayout {
             setDrawWithLayer(mCurrentPage.view, false);
             hideOtherPages(mCurrentPage);
             drawChild(canvas, mCurrentPage.view, 0);
-
-            // dispatch listener event now that we have "landed" on a page.
-            // TODO not the prettiest to have this with the drawing logic,
-            // should change.
-            if (mLastDispatchedPageEventIndex != mCurrentPageIndex) {
-                mLastDispatchedPageEventIndex = mCurrentPageIndex;
-                postFlippedToPage(mCurrentPageIndex);
-                mAdapter.setPrimaryItem(this, mCurrentPageIndex, mCurrentPage.item);
-            }
+            postFlippedToPage(mCurrentPageIndex);
         }
 
         // if overflip is GLOW mode and the edge effects needed drawing, make
@@ -941,15 +921,15 @@ public class FlipView extends FrameLayout {
     }
 
     private void postFlippedToPage(final int page) {
-        post(new Runnable() {
-
-            @Override
-            public void run() {
+        if (mLastDispatchedPageEventIndex != page) {
+            mLastDispatchedPageEventIndex = page;
+            mAdapter.setPrimaryItem(this, page, mCurrentPage.item);
+            post(() -> {
                 if (mOnFlipListener != null) {
                     mOnFlipListener.onFlippedToPage(FlipView.this, page);
                 }
-            }
-        });
+            });
+        }
     }
 
     private void onSecondaryPointerUp(MotionEvent ev) {
@@ -1056,13 +1036,7 @@ public class FlipView extends FrameLayout {
                     baseFlipDistance - FLIP_DISTANCE_PER_PAGE / 4);
         }
         mPeakAnim.setInterpolator(mPeakInterpolator);
-        mPeakAnim.addUpdateListener(new AnimatorUpdateListener() {
-
-            @Override
-            public void onAnimationUpdate(ValueAnimator animation) {
-                setFlipDistance((Float) animation.getAnimatedValue());
-            }
-        });
+        mPeakAnim.addUpdateListener(animation -> setFlipDistance((Float) animation.getAnimatedValue()));
         mPeakAnim.addListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation) {

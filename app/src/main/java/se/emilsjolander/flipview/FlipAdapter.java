@@ -9,15 +9,14 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.viewpager.widget.PagerAdapter;
 
 import com.flipview.segment.R;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import se.emilsjolander.flipviewPager.FlipViewAdapter;
-
-public class FlipAdapter extends FlipViewAdapter implements OnClickListener {
+public class FlipAdapter extends PagerAdapter implements OnClickListener {
 
     public interface Callback {
         public void onPageRequested(int page);
@@ -119,5 +118,10 @@ public class FlipAdapter extends FlipViewAdapter implements OnClickListener {
     @Override
     public void destroyItem(@NonNull ViewGroup container, int position, @NonNull Object object) {
         container.removeView(((ViewHolder) object).view);
+    }
+
+    @Override
+    public boolean isViewFromObject(@NonNull View view, @NonNull Object object) {
+        return false;
     }
 }
