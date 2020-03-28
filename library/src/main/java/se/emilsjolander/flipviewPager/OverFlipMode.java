@@ -1,4 +1,4 @@
-package se.emilsjolander.flipview;
+package se.emilsjolander.flipviewPager;
 
 public enum OverFlipMode {
 	GLOW, RUBBER_BAND

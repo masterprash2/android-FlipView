@@ -1,4 +1,4 @@
-package se.emilsjolander.flipview;
+package se.emilsjolander.flipviewPager;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -54,6 +54,14 @@ public class FlipView extends FrameLayout {
         View view;
         int position;
         boolean valid;
+
+        public void setInValid() {
+            this.valid = false;
+        }
+
+        public void setValid() {
+            this.valid = true;
+        }
     }
 
     // "null" flip distance
@@ -193,31 +201,83 @@ public class FlipView extends FrameLayout {
     }
 
     private void dataSetChanged() {
-        final int currentPage = mCurrentPageIndex;
         int newPosition = mAdapter.getItemPosition(mCurrentPage.item);
-
-        // remove all the current views
-        recycleActiveViews();
 
         mPageCount = mAdapter.getCount();
 
-//        // put the current page within the new adapter range
-//        newPosition = Math.min(mPageCount - 1, newPosition);
-
-        if (newPosition >= 0) {
-            // TODO pretty confusing
-            // this will be correctly set in setFlipDistance method
-            mCurrentPageIndex = PagerAdapter.POSITION_NONE;
-            mFlipDistance = INVALID_FLIP_DISTANCE;
-            flipTo(newPosition);
-        } else if (newPosition == PagerAdapter.POSITION_NONE) {
+        if (newPosition == PagerAdapter.POSITION_NONE) {
             mFlipDistance = INVALID_FLIP_DISTANCE;
             mPageCount = 0;
             setFlipDistance(0);
         }
-        mCurrentPageIndex = 0;
+        else {
+            preservePages(newPosition);
+        }
 
         updateEmptyStatus();
+    }
+
+    private void preservePages(int newPosition) {
+        preserveCurrentPage(newPosition);
+        updatePreviousPage(mCurrentPage.position);
+        updateNextPage(mCurrentPage.position);
+    }
+
+    private void updatePreviousPage(int newPosition) {
+        if(newPosition > 0) {
+            int previous = mAdapter.getItemPosition(mPreviousPage.item);
+            previous = previous == PagerAdapter.POSITION_UNCHANGED ? mPreviousPage.position : previous;
+            mPreviousPage.position = previous;
+            if(previous == PagerAdapter.POSITION_NONE || previous != newPosition -1) {
+                destroyPage(mPreviousPage);
+                addView(mPreviousPage,previous);
+                removeView(mPreviousPage.view);
+                addView(mPreviousPage.view,0);
+            }
+        }
+        else {
+            destroyPage(mPreviousPage);
+        }
+
+    }
+
+    private void preserveCurrentPage(int newPosition) {
+        newPosition = newPosition == PagerAdapter.POSITION_UNCHANGED ? mCurrentPageIndex : newPosition;
+        int flipDistance = newPosition * FLIP_DISTANCE_PER_PAGE;
+        if (mPageCount < 1) {
+            mFlipDistance = 0;
+            mCurrentPageIndex = PagerAdapter.POSITION_NONE;
+            recycleActiveViews();
+            return;
+        }
+
+        if (flipDistance == mFlipDistance) {
+            return;
+        }
+
+        mFlipDistance = flipDistance;
+
+        final int currentPageIndex = (int) Math.round(mFlipDistance
+                / FLIP_DISTANCE_PER_PAGE);
+        newPosition = currentPageIndex;
+        mCurrentPageIndex = mCurrentPage.position = newPosition;
+    }
+
+    private void updateNextPage(int newPosition) {
+        if(newPosition < mPageCount - 1 ) {
+            int next = mAdapter.getItemPosition(mNextPage.item);
+            next = next == PagerAdapter.POSITION_UNCHANGED ? mNextPage.position : next;
+            mNextPage.position = next;
+            if(next == PagerAdapter.POSITION_NONE || next != newPosition + 1) {
+                destroyPage(mNextPage);
+                addView(mNextPage, next);
+                removeView(mNextPage.view);
+                addView(mNextPage.view,0);
+            }
+        }
+        else {
+            destroyPage(mNextPage);
+        }
     }
 
 
@@ -321,9 +381,10 @@ public class FlipView extends FrameLayout {
             boolean isNext = (currentPageIndex - mCurrentPageIndex) == 1;
             mCurrentPageIndex = currentPageIndex;
 
+
             // TODO be smarter about this. Dont remove a view that will be added
             // again on the next line.
-            if(jump) {
+            if (jump) {
                 recycleActiveViews();
 
                 // add the new active views
@@ -336,21 +397,31 @@ public class FlipView extends FrameLayout {
                 if (mCurrentPageIndex < mPageCount - 1) {
                     addView(mNextPage, mCurrentPageIndex + 1);
                 }
-            }
-            else {
-                if(isNext) {
+            } else {
+                if (isNext) {
                     destroyPage(mPreviousPage);
-                    copy(mCurrentPage,mPreviousPage);
-                    copy(mNextPage,mCurrentPage);
-                    if(mCurrentPageIndex < mPageCount -1)
-                        addView(mNextPage,mCurrentPageIndex + 1);
-                }
-                else {
+                    copy(mCurrentPage, mPreviousPage);
+                    copy(mNextPage, mCurrentPage);
+                    if (mCurrentPageIndex < mPageCount - 1)
+                        addView(mNextPage, mCurrentPageIndex + 1);
+                    else {
+                        mNextPage.setInValid();
+                        mNextPage.position = -1;
+                        mNextPage.view = null;
+                        mNextPage.item = null;
+                    }
+                } else {
                     destroyPage(mNextPage);
-                    copy(mCurrentPage,mNextPage);
-                    copy(mPreviousPage,mCurrentPage);
-                    if(mCurrentPageIndex > 0)
-                        addView(mPreviousPage,mCurrentPageIndex - 1);
+                    copy(mCurrentPage, mNextPage);
+                    copy(mPreviousPage, mCurrentPage);
+                    if (mCurrentPageIndex > 0)
+                        addView(mPreviousPage, mCurrentPageIndex - 1);
+                    else {
+                        mPreviousPage.setInValid();
+                        mPreviousPage.position = -1;
+                        mPreviousPage.view = null;
+                        mPreviousPage.item = null;
+                    }
                 }
             }
         }
@@ -358,8 +429,11 @@ public class FlipView extends FrameLayout {
         invalidate();
     }
 
-    private void copy(Page from, Page to ) {
-        to.valid = from.valid;
+    private void copy(Page from, Page to) {
+        if (from.valid) {
+            to.setValid();
+        } else to.setInValid();
+//        to.valid = from.valid;
         to.view = from.view;
         to.position = from.position;
         to.item = from.item;
@@ -369,14 +443,14 @@ public class FlipView extends FrameLayout {
         page.position = index;
         page.item = mAdapter.instantiateItem(this, page.position);
         page.view = getChildAt(getChildCount() - 1);
-        page.valid = true;
+        page.setValid();
     }
 
     private void destroyPage(Page page) {
-        if(page.valid) {
+        if (page.valid) {
             mAdapter.destroyItem(this, page.position, page.item);
 //            mPreviousPage.view = null;
-            page.valid = false;
+            page.setInValid();
         }
     }
 

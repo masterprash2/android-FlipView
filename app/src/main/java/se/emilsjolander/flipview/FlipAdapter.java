@@ -15,6 +15,8 @@ import com.flipview.segment.R;
 import java.util.ArrayList;
 import java.util.List;
 
+import se.emilsjolander.flipviewPager.FlipViewAdapter;
+
 public class FlipAdapter extends FlipViewAdapter implements OnClickListener {
 
     public interface Callback {
@@ -102,7 +104,7 @@ public class FlipAdapter extends FlipViewAdapter implements OnClickListener {
 
     public void addItems(int amount) {
         for (int i = 0; i < amount; i++) {
-            items.add(new Item());
+            items.add(Math.min(2,items.size()),new Item());
         }
         notifyDataSetChanged();
     }
