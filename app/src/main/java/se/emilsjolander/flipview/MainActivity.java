@@ -55,7 +55,7 @@ public class MainActivity extends Activity implements Callback, OnFlipListener, 
 	}
 
 	@Override
-	public void onFlippedToPage(FlipView v, int position, long id) {
+	public void onFlippedToPage(FlipView v, int position) {
 		Log.i("pageflip", "Page: "+position);
 		if(position > mFlipView.getPageCount()-3 && mFlipView.getPageCount()<30){
 			mAdapter.addItems(5);
