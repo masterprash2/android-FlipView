@@ -210,6 +210,7 @@ public class FlipView extends FrameLayout {
 
         if (newPosition == PagerAdapter.POSITION_NONE) {
             mFlipDistance = INVALID_FLIP_DISTANCE;
+            mCurrentPageIndex = PagerAdapter.POSITION_NONE;
             setFlipDistance(0);
         } else {
             preservePages(newPosition);
@@ -228,13 +229,14 @@ public class FlipView extends FrameLayout {
         if (newPosition > 0) {
             int previous = getAdapterPosition(mPreviousPage);
             previous = previous == PagerAdapter.POSITION_UNCHANGED ? mPreviousPage.position : previous;
-            mPreviousPage.position = previous;
             if (previous == PagerAdapter.POSITION_NONE || previous != newPosition - 1) {
+                previous = newPosition - 1;
                 destroyPage(mPreviousPage);
                 addView(mPreviousPage, previous);
                 removeView(mPreviousPage.view);
                 addView(mPreviousPage.view, 0);
             }
+            mPreviousPage.position = previous;
         } else {
             destroyPage(mPreviousPage);
         }
@@ -254,13 +256,14 @@ public class FlipView extends FrameLayout {
         if (newPosition < mPageCount - 1) {
             int next = getAdapterPosition(mNextPage);
             next = next == PagerAdapter.POSITION_UNCHANGED ? mNextPage.position : next;
-            mNextPage.position = next;
             if (next == PagerAdapter.POSITION_NONE || next != newPosition + 1) {
+                next = newPosition+1;
                 destroyPage(mNextPage);
                 addView(mNextPage, next);
                 removeView(mNextPage.view);
                 addView(mNextPage.view, 0);
             }
+            mNextPage.position = next;
         } else {
             destroyPage(mNextPage);
         }
@@ -921,9 +924,9 @@ public class FlipView extends FrameLayout {
     }
 
     private void postFlippedToPage(final int page) {
+        mAdapter.setPrimaryItem(this, page, mCurrentPage.item);
         if (mLastDispatchedPageEventIndex != page) {
             mLastDispatchedPageEventIndex = page;
-            mAdapter.setPrimaryItem(this, page, mCurrentPage.item);
             post(() -> {
                 if (mOnFlipListener != null) {
                     mOnFlipListener.onFlippedToPage(FlipView.this, page);
