@@ -352,7 +352,7 @@ public class FlipView extends FrameLayout {
         if (mPageCount < 1) {
             mFlipDistance = 0;
             mCurrentPageIndex = PagerAdapter.POSITION_NONE;
-            recycleActiveViews();
+            removeActiveViews();
             return;
         }
 
@@ -374,7 +374,7 @@ public class FlipView extends FrameLayout {
             // TODO be smarter about this. Dont remove a view that will be added
             // again on the next line.
             if (jump) {
-                recycleActiveViews();
+                removeActiveViews();
 
                 // add the new active views
                 if (mCurrentPageIndex > 0) {
@@ -441,11 +441,13 @@ public class FlipView extends FrameLayout {
             if (mAdapter != null)
                 mAdapter.destroyItem(this, page.position, page.item);
 //            mPreviousPage.view = null;
+            removeView(page.view);
+            page.view = null;
             page.setInValid();
         }
     }
 
-    private void recycleActiveViews() {
+    private void removeActiveViews() {
         // remove and recycle the currently active views
         destroyPage(mPreviousPage);
         destroyPage(mCurrentPage);
@@ -1090,14 +1092,14 @@ public class FlipView extends FrameLayout {
         }
 
         // remove all the current views
-        removeAllViews();
+        removeActiveViews();
+
 
         mAdapter = adapter;
         mPageCount = adapter == null ? 0 : mAdapter.getCount();
 
         if (adapter != null) {
             mAdapter.registerDataSetObserver(dataSetObserver);
-
         }
 
         // TODO pretty confusing
