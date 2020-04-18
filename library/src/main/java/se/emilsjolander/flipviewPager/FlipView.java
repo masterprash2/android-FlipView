@@ -33,6 +33,8 @@ import com.flipview.library.R;
 
 public class FlipView extends FrameLayout {
 
+    private int storedVisibility;
+
     public interface OnFlipListener {
         public void onFlippedToPage(FlipView v, int position);
     }
@@ -112,6 +114,7 @@ public class FlipView extends FrameLayout {
     private int mTouchSlop;
     private boolean mIsOverFlipping;
 
+
     // keep track of pointer
     private float mLastX = -1;
     private float mLastY = -1;
@@ -137,6 +140,7 @@ public class FlipView extends FrameLayout {
     private float mFlipDistance = INVALID_FLIP_DISTANCE;
     private int mCurrentPageIndex = 0;
     private int mLastDispatchedPageEventIndex = -1;
+    private boolean flipNotificationPending = false;
 
     private OverFlipMode mOverFlipMode;
     private OverFlipper mOverFlipper;
@@ -412,8 +416,9 @@ public class FlipView extends FrameLayout {
                         mPreviousPage.item = null;
                     }
                 }
+                postFlippedToPage(mCurrentPage.position);
             }
-            postFlippedToPage(mCurrentPage.position);
+
         }
 
         invalidate();
@@ -926,15 +931,26 @@ public class FlipView extends FrameLayout {
     }
 
     private void postFlippedToPage(final int page) {
-        mAdapter.setPrimaryItem(this, page, mCurrentPage.item);
-        if (mLastDispatchedPageEventIndex != page) {
+        if(getVisibility() != View.VISIBLE) {
+            flipNotificationPending = true;
+            return;
+        }
+        flipNotificationPending = false;
+        if (mLastDispatchedPageEventIndex != page ) {
             mLastDispatchedPageEventIndex = page;
+            mAdapter.setPrimaryItem(this, page, mCurrentPage.item);
             post(() -> {
                 if (mOnFlipListener != null) {
                     mOnFlipListener.onFlippedToPage(FlipView.this, page);
                 }
             });
         }
+    }
+
+    @Override
+    public void setVisibility(int visibility) {
+        super.setVisibility(visibility);
+        this.storedVisibility = visibility;
     }
 
     private void onSecondaryPointerUp(MotionEvent ev) {
@@ -1067,16 +1083,19 @@ public class FlipView extends FrameLayout {
         if (empty) {
             if (mEmptyView != null) {
                 mEmptyView.setVisibility(View.VISIBLE);
-                setVisibility(View.GONE);
+                this.storedVisibility = getVisibility();
+                super.setVisibility(View.GONE);
             } else {
-                setVisibility(View.VISIBLE);
+                setVisibility(storedVisibility);
+//                setVisibility(View.VISIBLE);
             }
 
         } else {
             if (mEmptyView != null) {
                 mEmptyView.setVisibility(View.GONE);
             }
-            setVisibility(View.VISIBLE);
+            setVisibility(storedVisibility);
+//            setVisibility(View.VISIBLE);
         }
     }
 
