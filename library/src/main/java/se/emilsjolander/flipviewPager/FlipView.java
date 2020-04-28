@@ -1142,6 +1142,8 @@ public class FlipView extends FrameLayout {
         if (mAdapter != null) {
             mAdapter.unregisterDataSetObserver(dataSetObserver);
         }
+        mCurrentPageIndex = 0;
+        mLastDispatchedPageEventIndex = -1;
 
         // remove all the current views
         removeActiveViews();
