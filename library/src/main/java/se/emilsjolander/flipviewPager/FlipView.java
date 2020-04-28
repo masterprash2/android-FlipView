@@ -37,6 +37,16 @@ public class FlipView extends FrameLayout {
 
     public interface OnFlipListener {
         public void onFlippedToPage(FlipView v, int position);
+
+    }
+
+    public interface OnFlipScrollListener {
+        enum ScrollState {
+            START,
+            FLIPPING,
+            END
+        }
+        public void onFlip(FlipView v, ScrollState state);
     }
 
     public interface OnOverFlipListener {
@@ -107,7 +117,23 @@ public class FlipView extends FrameLayout {
     private TimeInterpolator mPeakInterpolator = new AccelerateDecelerateInterpolator();
 
     private boolean mIsFlippingVertically = true;
-    private boolean mIsFlipping;
+    private boolean flipping;
+
+    private boolean isFlipping() {
+        return flipping;
+    }
+
+    private void setFlipping(boolean value) {
+        if (flipping != value && mOnFlipListener != null) {
+            if (flipping) {
+                flipScrollListener.onFlip(this, OnFlipScrollListener.ScrollState.START);
+            } else {
+                flipScrollListener.onFlip(this,OnFlipScrollListener.ScrollState.END);
+            }
+        }
+        flipping = value;
+    }
+
     private boolean mIsUnableToFlip;
     private boolean mIsFlippingEnabled = true;
     private boolean mLastTouchAllowed = true;
@@ -135,6 +161,7 @@ public class FlipView extends FrameLayout {
     private View mEmptyView;
 
     private OnFlipListener mOnFlipListener;
+    private OnFlipScrollListener flipScrollListener;
     private OnOverFlipListener mOnOverFlipListener;
 
     private float mFlipDistance = INVALID_FLIP_DISTANCE;
@@ -261,7 +288,7 @@ public class FlipView extends FrameLayout {
             int next = getAdapterPosition(mNextPage);
             next = next == PagerAdapter.POSITION_UNCHANGED ? mNextPage.position : next;
             if (next == PagerAdapter.POSITION_NONE || next != newPosition + 1) {
-                next = newPosition+1;
+                next = newPosition + 1;
                 destroyPage(mNextPage);
                 addView(mNextPage, next);
                 removeView(mNextPage.view);
@@ -352,6 +379,9 @@ public class FlipView extends FrameLayout {
     }
 
     private void setFlipDistance(float flipDistance) {
+        if(isFlipping() && mOnFlipListener != null) {
+            flipScrollListener.onFlip(this,OnFlipScrollListener.ScrollState.FLIPPING);
+        }
         flipDistance = Math.max(0, flipDistance);
         if (mPageCount < 1) {
             mFlipDistance = 0;
@@ -474,7 +504,7 @@ public class FlipView extends FrameLayout {
 
         if (action == MotionEvent.ACTION_CANCEL
                 || action == MotionEvent.ACTION_UP) {
-            mIsFlipping = false;
+            setFlipping(false);
             mIsUnableToFlip = false;
             mActivePointerId = INVALID_POINTER;
             if (mVelocityTracker != null) {
@@ -485,7 +515,7 @@ public class FlipView extends FrameLayout {
         }
 
         if (action != MotionEvent.ACTION_DOWN) {
-            if (mIsFlipping) {
+            if (isFlipping()) {
                 return true;
             } else if (mIsUnableToFlip) {
                 return false;
@@ -515,7 +545,7 @@ public class FlipView extends FrameLayout {
 
                 if ((mIsFlippingVertically && yDiff > mTouchSlop && yDiff > xDiff)
                         || (!mIsFlippingVertically && xDiff > mTouchSlop && xDiff > yDiff)) {
-                    mIsFlipping = true;
+                    setFlipping(true);
                     mLastX = x;
                     mLastY = y;
                 } else if ((mIsFlippingVertically && xDiff > mTouchSlop)
@@ -530,7 +560,7 @@ public class FlipView extends FrameLayout {
                 mLastX = MotionEventCompat.getX(ev, mActivePointerId);
                 mLastY = MotionEventCompat.getY(ev, mActivePointerId);
 
-                mIsFlipping = !mScroller.isFinished() | mPeakAnim != null;
+                setFlipping(!mScroller.isFinished() | mPeakAnim != null);
                 mIsUnableToFlip = false;
                 mLastTouchAllowed = true;
 
@@ -540,11 +570,11 @@ public class FlipView extends FrameLayout {
                 break;
         }
 
-        if (!mIsFlipping) {
+        if (!isFlipping()) {
             trackVelocity(ev);
         }
 
-        return mIsFlipping;
+        return isFlipping();
     }
 
     @Override
@@ -558,7 +588,7 @@ public class FlipView extends FrameLayout {
             return false;
         }
 
-        if (!mIsFlipping && !mLastTouchAllowed) {
+        if (!isFlipping() && !mLastTouchAllowed) {
             return false;
         }
 
@@ -579,7 +609,7 @@ public class FlipView extends FrameLayout {
 
                 // start flipping immediately if interrupting some sort of animation
                 if (endScroll() || endPeak()) {
-                    mIsFlipping = true;
+                    setFlipping(true);
                 }
 
                 // Remember where the motion event started
@@ -588,7 +618,7 @@ public class FlipView extends FrameLayout {
                 mActivePointerId = MotionEventCompat.getPointerId(ev, 0);
                 break;
             case MotionEvent.ACTION_MOVE:
-                if (!mIsFlipping) {
+                if (!isFlipping()) {
                     final int pointerIndex = MotionEventCompat.findPointerIndex(ev,
                             mActivePointerId);
                     if (pointerIndex == -1) {
@@ -601,12 +631,12 @@ public class FlipView extends FrameLayout {
                     final float yDiff = Math.abs(y - mLastY);
                     if ((mIsFlippingVertically && yDiff > mTouchSlop && yDiff > xDiff)
                             || (!mIsFlippingVertically && xDiff > mTouchSlop && xDiff > yDiff)) {
-                        mIsFlipping = true;
+                        setFlipping(true);
                         mLastX = x;
                         mLastY = y;
                     }
                 }
-                if (mIsFlipping) {
+                if (isFlipping()) {
                     // Scroll to follow the motion event
                     final int activePointerIndex = MotionEventCompat
                             .findPointerIndex(ev, mActivePointerId);
@@ -662,7 +692,7 @@ public class FlipView extends FrameLayout {
                 break;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
-                if (mIsFlipping) {
+                if (isFlipping()) {
                     final VelocityTracker velocityTracker = mVelocityTracker;
                     velocityTracker.computeCurrentVelocity(1000, mMaximumVelocity);
 
@@ -718,7 +748,7 @@ public class FlipView extends FrameLayout {
             setFlipDistance(mScroller.getCurrY());
         }
 
-        if (mIsFlipping || !mScroller.isFinished() || mPeakAnim != null) {
+        if (isFlipping() || !mScroller.isFinished() || mPeakAnim != null) {
             showAllPages();
             drawPreviousHalf(canvas);
             drawNextHalf(canvas);
@@ -931,16 +961,16 @@ public class FlipView extends FrameLayout {
     }
 
     private void postFlippedToPage(final int page) {
-        if(getVisibility() != View.VISIBLE) {
+        if (getVisibility() != View.VISIBLE) {
             flipNotificationPending = true;
             return;
         }
         flipNotificationPending = false;
-        if (mLastDispatchedPageEventIndex != page ) {
+        if (mLastDispatchedPageEventIndex != page) {
             boolean canNotify = mLastDispatchedPageEventIndex >= 0;
             mLastDispatchedPageEventIndex = page;
             mAdapter.setPrimaryItem(this, page, mCurrentPage.item);
-            if(canNotify ) {
+            if (canNotify) {
                 post(() -> {
                     if (mOnFlipListener != null) {
                         mOnFlipListener.onFlippedToPage(FlipView.this, page);
@@ -1016,8 +1046,8 @@ public class FlipView extends FrameLayout {
      * @return true if ended a flip
      */
     private boolean endFlip() {
-        final boolean wasflipping = mIsFlipping;
-        mIsFlipping = false;
+        final boolean wasflipping = isFlipping();
+        setFlipping(false);
         mIsUnableToFlip = false;
         mLastTouchAllowed = false;
 
@@ -1213,6 +1243,10 @@ public class FlipView extends FrameLayout {
      */
     public void setOnFlipListener(OnFlipListener onFlipListener) {
         mOnFlipListener = onFlipListener;
+    }
+
+    public void setFlipScrollListener(OnFlipScrollListener flipScrollListener) {
+        this.flipScrollListener = flipScrollListener;
     }
 
     /**
