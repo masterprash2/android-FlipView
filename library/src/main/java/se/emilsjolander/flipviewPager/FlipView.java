@@ -966,10 +966,16 @@ public class FlipView extends FrameLayout {
             return;
         }
         flipNotificationPending = false;
-        if (mLastDispatchedPageEventIndex != page) {
+        if (mLastDispatchedPageEventIndex != page && mCurrentPage.valid) {
             boolean canNotify = mLastDispatchedPageEventIndex >= 0;
             mLastDispatchedPageEventIndex = page;
-            mAdapter.setPrimaryItem(this, page, mCurrentPage.item);
+            try {
+                mAdapter.setPrimaryItem(this, page, mCurrentPage.item);
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+                return;
+            }
             if (canNotify) {
                 post(() -> {
                     if (mOnFlipListener != null) {
